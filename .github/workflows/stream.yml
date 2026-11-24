@@ -26,10 +26,10 @@ jobs:
           HOST="${CLEAN_URL%%/*}"
           STREAM_KEY="${CLEAN_URL#*/}"
 
-          cat <<EOF > /etc/stunnel/kick.conf
+          cat <<EOF > stunnel.conf
           foreground = no
           debug = info
-          output = /tmp/stunnel.log
+          output = stunnel.log
 
           [kick]
           client = yes
@@ -37,9 +37,9 @@ jobs:
           connect = ${HOST}:443
           EOF
 
-          service stunnel4 restart || stunnel4 /etc/stunnel/kick.conf
+          stunnel4 stunnel.conf
           sleep 2
-          cat /tmp/stunnel.log || true
+          cat stunnel.log || true
 
           while true; do
             for i in $(seq 1 22); do
