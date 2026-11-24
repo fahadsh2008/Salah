@@ -7,8 +7,8 @@ jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg and Stunnel
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4
 
       - name: Download Videos from Release
         run: |
@@ -17,14 +17,29 @@ jobs:
             curl -f -L -o "videos/${i}.mp4" "https://github.com/fahadsh2008/Salah/releases/download/v1.0/${i}.mp4" || true
           done
 
-      - name: Stream to Kick
+      - name: Setup Stunnel & Stream to Kick
         env:
           KICK_URL: ${{ secrets.KICK_STREAM_URL }}
         run: |
+          CLEAN_URL="${KICK_URL#rtmps://}"
+          HOST="${CLEAN_URL%%/*}"
+          STREAM_KEY="${CLEAN_URL#*/}"
+
+          cat <<EOF > stunnel.conf
+          foreground = no
+          [kick]
+          client = yes
+          accept = 127.0.0.1:1935
+          connect = ${HOST}:443
+          EOF
+
+          stunnel4 stunnel.conf
+          sleep 2
+
           while true; do
             for i in $(seq 1 22); do
               if [ -f "videos/${i}.mp4" ]; then
-                ffmpeg -re -i "videos/${i}.mp4" -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "$KICK_URL"
+                ffmpeg -re -i "videos/${i}.mp4" -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "rtmp://127.0.0.1:1935/${STREAM_KEY}"
               fi
             done
           done
