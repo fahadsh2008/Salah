@@ -34,18 +34,23 @@ jobs:
 
           [kick]
           client = yes
+          sni = ${HOST}
           accept = 127.0.0.1:1935
           connect = ${HOST}:443
           EOF
 
           stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
+          echo "=== Stunnel Status ==="
+          ps aux | grep stunnel || true
+          echo "=== Stunnel Log ==="
           cat "${WORK_DIR}/stunnel.log" || true
 
           while true; do
             for i in $(seq 1 22); do
               if [ -f "videos/${i}.mp4" ]; then
-                ffmpeg -re -i "videos/${i}.mp4" -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "rtmp://127.0.0.1:1935/${STREAM_KEY}"
+                ffmpeg -re -i "videos/${i}.mp4" -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "rtmp://127.0.0.1:1935/${STREAM_KEY}" || true
+                sleep 2
               fi
             done
           done
