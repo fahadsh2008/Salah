@@ -25,11 +25,12 @@ jobs:
           CLEAN_URL="${KICK_URL#rtmps://}"
           HOST="${CLEAN_URL%%/*}"
           STREAM_KEY="${CLEAN_URL#*/}"
+          WORK_DIR="$(pwd)"
 
-          cat <<EOF > stunnel.conf
+          cat <<EOF > "${WORK_DIR}/stunnel.conf"
           foreground = no
           debug = info
-          output = stunnel.log
+          output = ${WORK_DIR}/stunnel.log
 
           [kick]
           client = yes
@@ -37,9 +38,9 @@ jobs:
           connect = ${HOST}:443
           EOF
 
-          stunnel4 stunnel.conf
+          stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
-          cat stunnel.log || true
+          cat "${WORK_DIR}/stunnel.log" || true
 
           while true; do
             for i in $(seq 1 22); do
