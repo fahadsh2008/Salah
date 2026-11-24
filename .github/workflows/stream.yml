@@ -16,6 +16,7 @@ jobs:
           for i in $(seq 1 22); do
             curl -f -L -o "videos/${i}.mp4" "https://github.com/fahadsh2008/Salah/releases/download/v1.0/${i}.mp4" || true
           done
+          ls -lh videos/1.mp4
 
       - name: Setup Stunnel & Stream to Kick
         env:
@@ -25,16 +26,20 @@ jobs:
           HOST="${CLEAN_URL%%/*}"
           STREAM_KEY="${CLEAN_URL#*/}"
 
-          cat <<EOF > stunnel.conf
+          cat <<EOF > /etc/stunnel/kick.conf
           foreground = no
+          debug = info
+          output = /tmp/stunnel.log
+
           [kick]
           client = yes
           accept = 127.0.0.1:1935
           connect = ${HOST}:443
           EOF
 
-          stunnel4 stunnel.conf
+          service stunnel4 restart || stunnel4 /etc/stunnel/kick.conf
           sleep 2
+          cat /tmp/stunnel.log || true
 
           while true; do
             for i in $(seq 1 22); do
