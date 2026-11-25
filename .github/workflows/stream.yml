@@ -61,7 +61,7 @@ jobs:
           cat "${WORK_DIR}/stunnel.log" || true
 
           START_INDEX="${START_INDEX_RAW:-1}"
-          if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] || [ "${START_INDEX}" -gt 22 ]; then
+          if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] \vert{}\vert{} [ "${START_INDEX}" -gt 22 ]; then
             START_INDEX=1
           fi
 
@@ -99,9 +99,9 @@ jobs:
                 NEXT_VIDEO=$((CURRENT + 1))
               fi
 
-              echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
+              echo "Playing video ${CURRENT}.mp4 (Next session start:${NEXT_VIDEO})"
 
-              ffmpeg -re -i "$FILE" \
+              ffmpeg -loglevel info -re -i "$FILE" \
                 -vf "drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile='${FONT_FILE}':text_env=TICKER_TEXT:fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw):text_shaping=1" \
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
@@ -110,6 +110,11 @@ jobs:
               FFMPEG_PID=$!
               wait "${FFMPEG_PID}" || true
               FFMPEG_PID=""
+
+              if [ ! -s "${WORK_DIR}/stunnel.log" ] \vert{}\vert{} grep -qi "error" "${WORK_DIR}/stunnel.log"; then
+                cat "${WORK_DIR}/stunnel.log" || true
+              fi
+
               sleep 2
             fi
 
@@ -124,4 +129,4 @@ jobs:
           echo "Starting next session from video ${NEXT_VIDEO}..."
           gh workflow run "Kick 24/7 Stream" \
             --repo "${GITHUB_REPOSITORY}" \
-            -f start_index="${NEXT_VIDEO}" || true
+            -
