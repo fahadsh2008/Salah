@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install FFmpeg, Stunnel, Fonts, and GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto-core fonts-dejavu-core
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto fonts-noto-core fonts-dejavu-core
 
       - name: Download Videos from Release
         run: |
@@ -57,11 +57,17 @@ jobs:
             START_INDEX=1
           fi
 
-          FONT_FILE="/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"
-          if [ ! -s "${FONT_FILE}" ]; then
-            FONT_FILE="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-          fi
-          ls -lh "${FONT_FILE}" || true
+          FONT_FILE=""
+          for candidate in \
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf" \
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf" \
+            "/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"; do
+            if [ -s "$candidate" ]; then
+              FONT_FILE="$candidate"
+              break
+            fi
+          done
+          echo "Using font: ${FONT_FILE}"
 
           TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم   -   Complete Wudu and Salah from Takbir to Taslim   -   Woudou et Salat complets   -   Tata cara wudu dan shalat lengkap   -   Wudu e Oracao completos   -   Описание вуду и намаза от такбира до таслима"
           SAFE_TEXT="${TICKER_TEXT//\'/}"
@@ -100,7 +106,7 @@ jobs:
               echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
               ffmpeg -re -i "$FILE" \
-                -filter_complex "[0:v]drawbox=x=0:y=h-56:w=iw:h=56:color=black@0.75:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=white:fontsize=24:y=h-40:x=w-mod(t*120\,w+tw)[v]" \
+                -filter_complex "[0:v]drawbox=x=0:y=h-60:w=iw:h=60:color=black@0.9:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=white:fontsize=24:y=h-42:x=w-mod(t*120\,w+tw)[v]" \
                 -map "[v]" -map "0:a?" \
                 -r 25 -c:v libx264 -preset veryfast -b:v 2000k -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 50 -keyint_min 50 -sc_threshold 0 \
