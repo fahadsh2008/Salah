@@ -30,6 +30,7 @@ jobs:
           KICK_URL: ${{ secrets.KICK_STREAM_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
           START_INDEX_RAW: ${{ inputs.start_index }}
+          YT_CHANNEL: "www.youtube.com/@Fhdxsh"
         run: |
           CLEAN_URL="${KICK_URL#rtmps://}"
           HOST="${CLEAN_URL%%/*}"
@@ -68,10 +69,11 @@ jobs:
             fi
           done
 
-          TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم   -   Complete Wudu and Salah from Takbir to Taslim   -   Woudou et Salat complets   -   Tata cara wudu dan shalat lengkap   -   Wudu e Oracao completos   -   Описание вуду и намаза от такбира до таслима"
+          TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم   -   اشترك في قناتنا على يوتيوب للمزيد ${YT_CHANNEL}   -   Complete Wudu and Salah from Takbir to Taslim   -   Subscribe on YouTube ${YT_CHANNEL}   -   Woudou et Salat complets   -   Tata cara wudu dan shalat lengkap   -   Wudu e Oracao completos   -   Описание вуду и намаза от такбира до таслима"
           SAFE_TEXT="${TICKER_TEXT//\'/}"
           SAFE_TEXT="${SAFE_TEXT//:/ }"
           SAFE_TEXT="${SAFE_TEXT//,/ }"
+          SAFE_TEXT="${SAFE_TEXT//\?/}"
 
           MAX_SECONDS=20700
           START_TIME=$(date +%s)
