@@ -67,7 +67,6 @@ jobs:
               break
             fi
           done
-          echo "Selected font: ${FONT_FILE}"
 
           TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم   -   Complete Wudu and Salah from Takbir to Taslim   -   Woudou et Salat complets   -   Tata cara wudu dan shalat lengkap   -   Wudu e Oracao completos   -   Описание вуду и намаза от такбира до таслима"
           SAFE_TEXT="${TICKER_TEXT//\'/}"
@@ -106,7 +105,7 @@ jobs:
               echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
               ffmpeg -re -i "$FILE" \
-                -filter_complex "[0:v]drawbox=x=0:y=h-62:w=iw:h=62:color=navy@0.92:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=yellow:borderw=2:bordercolor=black:fontsize=25:y=h-42:x=w-mod(t*120\,w+tw)[v]" \
+                -filter_complex "[0:v]drawbox=x=0:y=h-62:w=iw:h=62:color=navy@0.92:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=yellow:borderw=2:bordercolor=black:fontsize=25:y=h-42:x=-tw+mod(t*120\,w+tw)[v]" \
                 -map "[v]" -map "0:a?" \
                 -r 25 -c:v libx264 -preset ultrafast -b:v 1800k -maxrate 2200k -bufsize 4400k \
                 -pix_fmt yuv420p -g 50 -keyint_min 50 -sc_threshold 0 \
