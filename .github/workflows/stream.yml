@@ -15,8 +15,8 @@ jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FFmpeg, Stunnel, and GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh
+      - name: Install FFmpeg, Stunnel, Fonts, and GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto-core fonts-dejavu-core
 
       - name: Download Videos from Release
         run: |
@@ -58,6 +58,15 @@ jobs:
             START_INDEX=1
           fi
 
+          # إعداد نص الشريط المتحرك باللغات المدعومة فقط
+          TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم | Complete Wudu and Salah (Takbir to Taslim) | Woudou et Salat complets | Tata cara wudu dan shalat lengkap | Wudu e Oração completos | Описание вуду и намаза от такбира до таслима"
+          SAFE_TEXT="${TICKER_TEXT//\'/}"
+          SAFE_TEXT="${SAFE_TEXT//:/\\:}"
+          FONT_FILE="/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"
+          if [ ! -s "${FONT_FILE}" ]; then
+            FONT_FILE="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+          fi
+
           # مدة الجلسة: 5 ساعات و45 دقيقة (20700 ثانية)
           MAX_SECONDS=20700
           START_TIME=$(date +%s)
@@ -92,6 +101,7 @@ jobs:
               echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
               ffmpeg -re -i "$FILE" \
+                -vf "drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile='${FONT_FILE}':text='${SAFE_TEXT}':fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw)" \
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
                 -c:a aac -b:a 128k -ar 44100 \
