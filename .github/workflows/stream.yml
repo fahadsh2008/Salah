@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Install FFmpeg, Stunnel, Fonts, and GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto-core fonts-dejavu-core
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto-core fonts-dejavu-core iproute2
 
       - name: Download Videos from Release
         run: |
@@ -34,11 +34,12 @@ jobs:
           CLEAN_URL="${KICK_URL#rtmps://}"
           HOST="${CLEAN_URL%%/*}"
           STREAM_KEY="${CLEAN_URL#*/}"
+          STREAM_KEY="${STREAM_KEY#app/}"
           WORK_DIR="$(pwd)"
 
           cat <<EOF > "${WORK_DIR}/stunnel.conf"
           foreground = no
-          debug = warning
+          debug = info
           output = ${WORK_DIR}/stunnel.log
 
           [kick]
@@ -51,6 +52,9 @@ jobs:
 
           stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
+
+          ss -tlnp | grep ":1935" || echo "WARNING: stunnel is not listening on 127.0.0.1:1935"
+          cat "${WORK_DIR}/stunnel.log" || true
 
           # تحديد رقم الفيديو الذي يبدأ منه البث
           START_INDEX="${START_INDEX_RAW:-1}"
@@ -102,7 +106,7 @@ jobs:
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
                 -c:a aac -b:a 128k -ar 44100 \
-                -f flv "rtmp://127.0.0.1:1935/${STREAM_KEY}" &
+                -f flv "rtmp://127.0.0.1:1935/app/${STREAM_KEY}" &
               FFMPEG_PID=$!
               wait "${FFMPEG_PID}" || true
               FFMPEG_PID=""
