@@ -14,18 +14,15 @@ on:
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 345
     steps:
-      - name: Install FFmpeg, Stunnel, Fonts, and GitHub CLI
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh fonts-noto-core fonts-dejavu-core iproute2
+      - name: Install FFmpeg, Stunnel, and GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh
 
       - name: Download Videos from Release
         run: |
           mkdir -p videos
           for i in $(seq 1 22); do
-            if [ ! -s "videos/${i}.mp4" ]; then
-              curl -f -L -o "videos/${i}.mp4" "https://github.com/fahadsh2008/Salah/releases/download/v1.0/${i}.mp4" || true
-            fi
+            curl -f -L -o "videos/${i}.mp4" "https://github.com/fahadsh2008/Salah/releases/download/v1.0/${i}.mp4" || true
           done
 
       - name: Setup Stunnel & Stream to Kick
@@ -33,17 +30,15 @@ jobs:
           KICK_URL: ${{ secrets.KICK_STREAM_URL }}
           GH_TOKEN: ${{ secrets.GH_PAT }}
           START_INDEX_RAW: ${{ inputs.start_index }}
-          TICKER_TEXT: "صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم | Complete Wudu and Salah (Takbir to Taslim) | Woudou et Salat complets | Tata cara wudu dan shalat lengkap | Wudu e Oração completos | Описание вуду и намаза от такбира до таслима"
         run: |
           CLEAN_URL="${KICK_URL#rtmps://}"
           HOST="${CLEAN_URL%%/*}"
           STREAM_KEY="${CLEAN_URL#*/}"
-          STREAM_KEY="${STREAM_KEY#app/}"
           WORK_DIR="$(pwd)"
 
           cat <<EOF > "${WORK_DIR}/stunnel.conf"
           foreground = no
-          debug = info
+          debug = warning
           output = ${WORK_DIR}/stunnel.log
 
           [kick]
@@ -57,19 +52,13 @@ jobs:
           stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
 
-          ss -tlnp | grep ":1935" || echo "WARNING: stunnel is not listening on 127.0.0.1:1935"
-          cat "${WORK_DIR}/stunnel.log" || true
-
+          # تحديد رقم الفيديو الذي يبدأ منه البث
           START_INDEX="${START_INDEX_RAW:-1}"
-          if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] \vert{}\vert{} [ "${START_INDEX}" -gt 22 ]; then
+          if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] || [ "${START_INDEX}" -gt 22 ]; then
             START_INDEX=1
           fi
 
-          FONT_FILE="/usr/share/fonts/truetype/noto/NotoSansArabic-Regular.ttf"
-          if [ ! -s "${FONT_FILE}" ]; then
-            FONT_FILE="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-          fi
-
+          # مدة الجلسة: 5 ساعات و45 دقيقة (20700 ثانية)
           MAX_SECONDS=20700
           START_TIME=$(date +%s)
           FFMPEG_PID=""
@@ -93,16 +82,16 @@ jobs:
 
             FILE="${WORK_DIR}/videos/${CURRENT}.mp4"
             if [ -s "$FILE" ]; then
+              # تسجيل الفيديو التالي ليكون نقطة البداية في حال انتهى الوقت أثناء تشغيل هذا الفيديو
               if [ "${CURRENT}" -ge 22 ]; then
                 NEXT_VIDEO=1
               else
                 NEXT_VIDEO=$((CURRENT + 1))
               fi
 
-              echo "Playing video ${CURRENT}.mp4 (Next session start:${NEXT_VIDEO})"
+              echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
-              ffmpeg -loglevel info -re -i "$FILE" \
-                -vf "drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile='${FONT_FILE}':text_env=TICKER_TEXT:fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw):text_shaping=1" \
+              ffmpeg -re -i "$FILE" \
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
                 -c:a aac -b:a 128k -ar 44100 \
@@ -110,11 +99,6 @@ jobs:
               FFMPEG_PID=$!
               wait "${FFMPEG_PID}" || true
               FFMPEG_PID=""
-
-              if [ ! -s "${WORK_DIR}/stunnel.log" ] \vert{}\vert{} grep -qi "error" "${WORK_DIR}/stunnel.log"; then
-                cat "${WORK_DIR}/stunnel.log" || true
-              fi
-
               sleep 2
             fi
 
@@ -125,8 +109,9 @@ jobs:
             fi
           done
 
+          # إغلاق ffmpeg الحالي ثم إطلاق الجولة الجديدة برقم الفيديو التالي
           cleanup
           echo "Starting next session from video ${NEXT_VIDEO}..."
           gh workflow run "Kick 24/7 Stream" \
             --repo "${GITHUB_REPOSITORY}" \
-            -
+            -f start_index="${NEXT_VIDEO}" || true
