@@ -97,7 +97,7 @@ jobs:
               echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
               ffmpeg -re -i "$FILE" \
-                -filter_complex "[0:v]drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw)[v]" \
+                -filter_complex "[0:v]drawbox=x=0:y=h-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=white:fontsize=22:y=h-37:x=w-mod(t*130\,w+tw)[v]" \
                 -map "[v]" -map "0:a?" \
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
