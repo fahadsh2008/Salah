@@ -2,13 +2,21 @@ name: Kick 24/7 Stream
 
 on:
   workflow_dispatch:
+    inputs:
+      start_index:
+        description: "رقم الفيديو الذي يبدأ منه البث (1 إلى 22)"
+        required: false
+        default: "1"
+        type: string
+  schedule:
+    - cron: "0 */6 * * *"
 
 jobs:
   stream:
     runs-on: ubuntu-latest
     steps:
-      - name: Install FFmpeg and Stunnel
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4
+      - name: Install FFmpeg, Stunnel, and GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg stunnel4 gh
 
       - name: Download Videos from Release
         run: |
@@ -20,6 +28,8 @@ jobs:
       - name: Setup Stunnel & Stream to Kick
         env:
           KICK_URL: ${{ secrets.KICK_STREAM_URL }}
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+          START_INDEX_RAW: ${{ inputs.start_index }}
         run: |
           CLEAN_URL="${KICK_URL#rtmps://}"
           HOST="${CLEAN_URL%%/*}"
@@ -28,7 +38,7 @@ jobs:
 
           cat <<EOF > "${WORK_DIR}/stunnel.conf"
           foreground = no
-          debug = info
+          debug = warning
           output = ${WORK_DIR}/stunnel.log
 
           [kick]
@@ -42,11 +52,66 @@ jobs:
           stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
 
+          # تحديد رقم الفيديو الذي يبدأ منه البث
+          START_INDEX="${START_INDEX_RAW:-1}"
+          if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] || [ "${START_INDEX}" -gt 22 ]; then
+            START_INDEX=1
+          fi
+
+          # مدة الجلسة: 5 ساعات و45 دقيقة (20700 ثانية)
+          MAX_SECONDS=20700
+          START_TIME=$(date +%s)
+          FFMPEG_PID=""
+          NEXT_VIDEO="${START_INDEX}"
+
+          cleanup() {
+            if [ -n "${FFMPEG_PID}" ] && kill -0 "${FFMPEG_PID}" 2>/dev/null; then
+              kill -TERM "${FFMPEG_PID}" 2>/dev/null || true
+              wait "${FFMPEG_PID}" 2>/dev/null || true
+            fi
+          }
+          trap cleanup EXIT
+
+          CURRENT="${START_INDEX}"
           while true; do
-            for i in $(seq 1 22); do
-              if [ -f "videos/${i}.mp4" ]; then
-                ffmpeg -re -i "videos/${i}.mp4" -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 -f flv "rtmp://127.0.0.1:1935/app/${STREAM_KEY}" || true
-                sleep 2
+            NOW=$(date +%s)
+            ELAPSED=$((NOW - START_TIME))
+            if [ "${ELAPSED}" -ge "${MAX_SECONDS}" ]; then
+              break
+            fi
+
+            FILE="${WORK_DIR}/videos/${CURRENT}.mp4"
+            if [ -s "$FILE" ]; then
+              # تسجيل الفيديو التالي ليكون نقطة البداية في حال انتهى الوقت أثناء تشغيل هذا الفيديو
+              if [ "${CURRENT}" -ge 22 ]; then
+                NEXT_VIDEO=1
+              else
+                NEXT_VIDEO=$((CURRENT + 1))
               fi
-            done
+
+              echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
+
+              ffmpeg -re -i "$FILE" \
+                -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
+                -pix_fmt yuv420p -g 60 \
+                -c:a aac -b:a 128k -ar 44100 \
+                -f flv "rtmp://127.0.0.1:1935/app/${STREAM_KEY}" &
+              FFMPEG_PID=$!
+              wait "${FFMPEG_PID}" || true
+              FFMPEG_PID=""
+              sleep 2
+            fi
+
+            if [ "${CURRENT}" -ge 22 ]; then
+              CURRENT=1
+            else
+              CURRENT=$((CURRENT + 1))
+            fi
           done
+
+          # إغلاق ffmpeg الحالي ثم إطلاق الجولة الجديدة برقم الفيديو التالي
+          cleanup
+          echo "Starting next session from video ${NEXT_VIDEO}..."
+          gh workflow run "Kick 24/7 Stream" \
+            --repo "${GITHUB_REPOSITORY}" \
+            -f start_index="${NEXT_VIDEO}" || true
