@@ -52,13 +52,11 @@ jobs:
           stunnel4 "${WORK_DIR}/stunnel.conf"
           sleep 2
 
-          # تحديد رقم الفيديو الذي يبدأ منه البث
           START_INDEX="${START_INDEX_RAW:-1}"
           if ! [[ "${START_INDEX}" =~ ^[0-9]+$ ]] || [ "${START_INDEX}" -lt 1 ] || [ "${START_INDEX}" -gt 22 ]; then
             START_INDEX=1
           fi
 
-          # إعداد نص الشريط المتحرك باللغات المدعومة فقط
           TICKER_TEXT="صفة الوضوء من بداية الطهارة حتى نهايتها والصلاة من التكبير حتى التسليم | Complete Wudu and Salah (Takbir to Taslim) | Woudou et Salat complets | Tata cara wudu dan shalat lengkap | Wudu e Oração completos | Описание вуду и намаза от такбира до таслима"
           SAFE_TEXT="${TICKER_TEXT//\'/}"
           SAFE_TEXT="${SAFE_TEXT//:/\\:}"
@@ -67,7 +65,6 @@ jobs:
             FONT_FILE="/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
           fi
 
-          # مدة الجلسة: 5 ساعات و45 دقيقة (20700 ثانية)
           MAX_SECONDS=20700
           START_TIME=$(date +%s)
           FFMPEG_PID=""
@@ -91,7 +88,6 @@ jobs:
 
             FILE="${WORK_DIR}/videos/${CURRENT}.mp4"
             if [ -s "$FILE" ]; then
-              # تسجيل الفيديو التالي ليكون نقطة البداية في حال انتهى الوقت أثناء تشغيل هذا الفيديو
               if [ "${CURRENT}" -ge 22 ]; then
                 NEXT_VIDEO=1
               else
@@ -101,7 +97,8 @@ jobs:
               echo "Playing video ${CURRENT}.mp4 (Next session start: ${NEXT_VIDEO})"
 
               ffmpeg -re -i "$FILE" \
-                -vf "drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile='${FONT_FILE}':text='${SAFE_TEXT}':fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw)" \
+                -filter_complex "[0:v]drawbox=x=0:y=ih-52:w=iw:h=52:color=black@0.65:t=fill,drawtext=fontfile=${FONT_FILE}:text=${SAFE_TEXT}:fontcolor=white:fontsize=22:y=ih-37:x=w-mod(t*130\,w+tw)[v]" \
+                -map "[v]" -map "0:a?" \
                 -c:v libx264 -preset veryfast -maxrate 2500k -bufsize 5000k \
                 -pix_fmt yuv420p -g 60 \
                 -c:a aac -b:a 128k -ar 44100 \
@@ -119,7 +116,6 @@ jobs:
             fi
           done
 
-          # إغلاق ffmpeg الحالي ثم إطلاق الجولة الجديدة برقم الفيديو التالي
           cleanup
           echo "Starting next session from video ${NEXT_VIDEO}..."
           gh workflow run "Kick 24/7 Stream" \
